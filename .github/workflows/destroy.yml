@@ -1,9 +1,7 @@
 name: Destroy Terraform Configuration
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   destroy:
@@ -26,10 +24,6 @@ jobs:
 
       - name: Initialize Terraform
         run: terraform init
-
-      - name: Validate Terraform configuration
-        run: terraform validate
-
       - name: Plan Terraform destruction
         run: terraform plan -destroy -out=tfdestroy
 
