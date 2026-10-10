@@ -1,3 +1,9 @@
+variable "project_name" {
+  description = "The name of the project"
+  type        = string
+  default     = "sadia"
+}
+
 variable "aws_region" {
   description = "The AWS region to deploy resources in"
   type        = string
@@ -5,8 +11,8 @@ variable "aws_region" {
 
 }
 
-variable "subnet_count" {
-  description = "The number of subnets to create"
+variable "availability_zone_count" {
+  description = "The number of availability zones to use"
   type        = number
   default     = 3
 }

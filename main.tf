@@ -11,15 +11,19 @@ data "aws_ami" "ubuntu" {
     values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
   }
 }
-
+variable "availability_zone_count" {
+  description = "The number of availability zones to use"
+  type        = number
+  default     = 3
+}
 locals {
-  selected_azs = slice(data.aws_availability_zones.available.names, 0, var.subnet_count)
+  selected_azs = slice(data.aws_availability_zones.available.names, 0, var.availability_zone_count)
   subnet_config = {
     for idx, az in local.selected_azs : az => {
       az_name         = az
       public_cidr     = cidrsubnet(var.vpc_cidr, 8, idx)
-      private_cidr    = cidrsubnet(var.vpc_cidr, 8, idx + var.subnet_count)
-      db_private_cidr = cidrsubnet(var.vpc_cidr, 8, idx + var.subnet_count * 2)
+      private_cidr    = cidrsubnet(var.vpc_cidr, 8, idx + var.availability_zone_count)
+      db_private_cidr = cidrsubnet(var.vpc_cidr, 8, idx + var.availability_zone_count * 2)
     }
   }
 }
@@ -30,7 +34,7 @@ resource "aws_vpc" "sadia_vpc" {
   enable_dns_hostnames = true
 
   tags = {
-    Name = "sadia-vpc"
+    Name = "${var.project_name}-vpc"
   }
 }
 
@@ -43,7 +47,7 @@ resource "aws_subnet" "sadia_public_subnets" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "sadia-public-subnet-${each.key}"
+    Name = "${var.project_name}-public-subnet-${each.key}"
   }
 }
 
@@ -55,7 +59,7 @@ resource "aws_subnet" "sadia_private_subnets" {
   availability_zone = each.value.az_name
 
   tags = {
-    Name = "sadia-private-subnet-${each.key}"
+    Name = "${var.project_name}-private-subnet-${each.key}"
   }
 }
 
@@ -67,7 +71,7 @@ resource "aws_subnet" "sadia_db_private_subnets" {
   availability_zone = each.value.az_name
 
   tags = {
-    Name = "sadia-db-private-subnet-${each.key}"
+    Name = "${var.project_name}-db-private-subnet-${each.key}"
   }
 }
 
@@ -75,20 +79,22 @@ resource "aws_internet_gateway" "sadia_igw" {
   vpc_id = aws_vpc.sadia_vpc.id
 
   tags = {
-    Name = "sadia-igw"
+    Name = "${var.project_name}-igw"
   }
 }
 
 resource "aws_route_table" "sadia_public_rt" {
   vpc_id = aws_vpc.sadia_vpc.id
 
-  route {
-    cidr_block = var.open_cidr
-    gateway_id = aws_internet_gateway.sadia_igw.id
-  }
   tags = {
-    Name = "sadia-public-rt"
+    Name = "${var.project_name}-public-rt"
   }
+}
+
+resource "aws_route" "sadia_public_internet_access" {
+  route_table_id         = aws_route_table.sadia_public_rt.id
+  destination_cidr_block = var.open_cidr
+  gateway_id             = aws_internet_gateway.sadia_igw.id
 }
 
 resource "aws_route_table_association" "sadia_public_rt_assoc" {
@@ -104,7 +110,7 @@ resource "aws_eip" "sadia_nat_eip" {
   depends_on = [aws_internet_gateway.sadia_igw]
 
   tags = {
-    Name = "sadia-eip-${each.key}"
+    Name = "${var.project_name}-eip-${each.key}"
   }
 }
 
@@ -116,21 +122,24 @@ resource "aws_nat_gateway" "sadia_nat_gw" {
   depends_on    = [aws_internet_gateway.sadia_igw]
 
   tags = {
-    Name = "sadia-nat-gw-${each.key}"
+    Name = "${var.project_name}-nat-gw-${each.key}"
   }
 }
 resource "aws_route_table" "sadia_private_rt" {
   for_each = aws_subnet.sadia_private_subnets
   vpc_id   = aws_vpc.sadia_vpc.id
 
-  route {
-    cidr_block     = var.open_cidr
-    nat_gateway_id = aws_nat_gateway.sadia_nat_gw[each.key].id
-  }
-
   tags = {
-    Name = "sadia-private-rt-${each.key}"
+    Name = "${var.project_name}-private-rt-${each.key}"
   }
+}
+
+resource "aws_route" "sadia_private_nat_access" {
+  for_each = aws_route_table.sadia_private_rt
+
+  route_table_id         = each.value.id
+  destination_cidr_block = var.open_cidr
+  nat_gateway_id         = aws_nat_gateway.sadia_nat_gw[each.key].id
 }
 
 resource "aws_route_table_association" "sadia_private_rt_assoc" {
@@ -145,7 +154,7 @@ resource "aws_route_table" "sadia_db_private_rt" {
   vpc_id   = aws_vpc.sadia_vpc.id
 
   tags = {
-    Name = "sadia-db-private-rt-${each.key}"
+    Name = "${var.project_name}-db-private-rt-${each.key}"
   }
 }
 
@@ -157,7 +166,7 @@ resource "aws_route_table_association" "sadia_db_private_rt_assoc" {
 }
 
 resource "aws_security_group" "sadia_web_sg" {
-  name        = "sadia-web-sg"
+  name        = "${var.project_name}-web-sg"
   description = "Security group for web servers"
   vpc_id      = aws_vpc.sadia_vpc.id
 }
@@ -199,12 +208,12 @@ resource "aws_security_group_rule" "web_allow_https" {
 }
 
 resource "aws_security_group" "sadia_db_sg" {
-  name        = "sadia-db-sg"
+  name        = "${var.project_name}-db-sg"
   description = "Security group for database servers"
   vpc_id      = aws_vpc.sadia_vpc.id
 
   tags = {
-    Name = "sadia-db-sg"
+    Name = "${var.project_name}-db-sg"
   }
 }
 
@@ -218,10 +227,10 @@ resource "aws_security_group_rule" "db_allow_mysql" {
 }
 
 resource "aws_db_subnet_group" "sadia_db_subnet_group" {
-  name       = "sadia-db-subnet-group"
+  name       = "${var.project_name}-db-subnet-group"
   subnet_ids = [for subnet in aws_subnet.sadia_db_private_subnets : subnet.id]
 
   tags = {
-    Name = "sadia-db-subnet-group"
+    Name = "${var.project_name}-db-subnet-group"
   }
 }
