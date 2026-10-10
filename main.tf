@@ -11,11 +11,7 @@ data "aws_ami" "ubuntu" {
     values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
   }
 }
-variable "availability_zone_count" {
-  description = "The number of availability zones to use"
-  type        = number
-  default     = 3
-}
+
 locals {
   selected_azs = slice(data.aws_availability_zones.available.names, 0, var.availability_zone_count)
   subnet_config = {
