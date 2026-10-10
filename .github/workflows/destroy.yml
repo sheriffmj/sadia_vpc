@@ -3,6 +3,10 @@ name: Destroy Terraform Configuration
 on:
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   destroy:
     runs-on: ubuntu-latest
@@ -10,11 +14,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up credentials for AWS
-        uses: aws-actions/configure-aws-credentials@v2
+      - name: configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4.1.0
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ vars.AWS_IAM_ROLE }}
           aws-region: us-east-1
 
       - name: Set up Terraform
