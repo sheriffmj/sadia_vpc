@@ -34,3 +34,15 @@ variable "allow_ssh_cidr" {
   type        = string
   default     = "10.255.255.1/32"
 }
+
+variable "inbound_web_cidr" {
+  description = "The CIDR block to allow inbound HTTP and HTTPS access from"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "allowed_app_sg_id" {
+  description = "Optional security group ID of the allowed application"
+  type        = string
+  default     = null
+}

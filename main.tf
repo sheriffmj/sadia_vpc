@@ -24,7 +24,7 @@ locals {
   }
 }
 
-resource "aws_vpc" "sadia_vpc" {
+resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
@@ -34,10 +34,10 @@ resource "aws_vpc" "sadia_vpc" {
   }
 }
 
-resource "aws_subnet" "sadia_public_subnets" {
+resource "aws_subnet" "public_subnets" {
   for_each = local.subnet_config
 
-  vpc_id                  = aws_vpc.sadia_vpc.id
+  vpc_id                  = aws_vpc.main.id
   cidr_block              = each.value.public_cidr
   availability_zone       = each.value.az_name
   map_public_ip_on_launch = true
@@ -47,10 +47,10 @@ resource "aws_subnet" "sadia_public_subnets" {
   }
 }
 
-resource "aws_subnet" "sadia_private_subnets" {
+resource "aws_subnet" "private_subnets" {
   for_each = local.subnet_config
 
-  vpc_id            = aws_vpc.sadia_vpc.id
+  vpc_id            = aws_vpc.main.id
   cidr_block        = each.value.private_cidr
   availability_zone = each.value.az_name
 
@@ -59,10 +59,10 @@ resource "aws_subnet" "sadia_private_subnets" {
   }
 }
 
-resource "aws_subnet" "sadia_db_private_subnets" {
+resource "aws_subnet" "db_private_subnets" {
   for_each = local.subnet_config
 
-  vpc_id            = aws_vpc.sadia_vpc.id
+  vpc_id            = aws_vpc.main.id
   cidr_block        = each.value.db_private_cidr
   availability_zone = each.value.az_name
 
@@ -71,100 +71,100 @@ resource "aws_subnet" "sadia_db_private_subnets" {
   }
 }
 
-resource "aws_internet_gateway" "sadia_igw" {
-  vpc_id = aws_vpc.sadia_vpc.id
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
 
   tags = {
     Name = "${var.project_name}-igw"
   }
 }
 
-resource "aws_route_table" "sadia_public_rt" {
-  vpc_id = aws_vpc.sadia_vpc.id
+resource "aws_route_table" "public_rt" {
+  vpc_id = aws_vpc.main.id
 
   tags = {
     Name = "${var.project_name}-public-rt"
   }
 }
 
-resource "aws_route" "sadia_public_internet_access" {
-  route_table_id         = aws_route_table.sadia_public_rt.id
+resource "aws_route" "public_internet_access" {
+  route_table_id         = aws_route_table.public_rt.id
   destination_cidr_block = var.open_cidr
-  gateway_id             = aws_internet_gateway.sadia_igw.id
+  gateway_id             = aws_internet_gateway.igw.id
 }
 
-resource "aws_route_table_association" "sadia_public_rt_assoc" {
-  for_each = aws_subnet.sadia_public_subnets
+resource "aws_route_table_association" "public_rt_assoc" {
+  for_each = aws_subnet.public_subnets
 
   subnet_id      = each.value.id
-  route_table_id = aws_route_table.sadia_public_rt.id
+  route_table_id = aws_route_table.public_rt.id
 }
 
-resource "aws_eip" "sadia_nat_eip" {
+resource "aws_eip" "nat_eip" {
   for_each   = local.subnet_config
   domain     = "vpc"
-  depends_on = [aws_internet_gateway.sadia_igw]
+  depends_on = [aws_internet_gateway.igw]
 
   tags = {
     Name = "${var.project_name}-eip-${each.key}"
   }
 }
 
-resource "aws_nat_gateway" "sadia_nat_gw" {
+resource "aws_nat_gateway" "nat_gw" {
   for_each = local.subnet_config
 
-  allocation_id = aws_eip.sadia_nat_eip[each.key].id
-  subnet_id     = aws_subnet.sadia_public_subnets[each.key].id
-  depends_on    = [aws_internet_gateway.sadia_igw]
+  allocation_id = aws_eip.nat_eip[each.key].id
+  subnet_id     = aws_subnet.public_subnets[each.key].id
+  depends_on    = [aws_internet_gateway.igw]
 
   tags = {
     Name = "${var.project_name}-nat-gw-${each.key}"
   }
 }
-resource "aws_route_table" "sadia_private_rt" {
-  for_each = aws_subnet.sadia_private_subnets
-  vpc_id   = aws_vpc.sadia_vpc.id
+resource "aws_route_table" "private_rt" {
+  for_each = aws_subnet.private_subnets
+  vpc_id   = aws_vpc.main.id
 
   tags = {
     Name = "${var.project_name}-private-rt-${each.key}"
   }
 }
 
-resource "aws_route" "sadia_private_nat_access" {
-  for_each = aws_route_table.sadia_private_rt
+resource "aws_route" "private_nat_access" {
+  for_each = aws_route_table.private_rt
 
   route_table_id         = each.value.id
   destination_cidr_block = var.open_cidr
-  nat_gateway_id         = aws_nat_gateway.sadia_nat_gw[each.key].id
+  nat_gateway_id         = aws_nat_gateway.nat_gw[each.key].id
 }
 
-resource "aws_route_table_association" "sadia_private_rt_assoc" {
-  for_each = aws_subnet.sadia_private_subnets
+resource "aws_route_table_association" "private_rt_assoc" {
+  for_each = aws_subnet.private_subnets
 
   subnet_id      = each.value.id
-  route_table_id = aws_route_table.sadia_private_rt[each.key].id
+  route_table_id = aws_route_table.private_rt[each.key].id
 }
 
-resource "aws_route_table" "sadia_db_private_rt" {
-  for_each = aws_subnet.sadia_db_private_subnets
-  vpc_id   = aws_vpc.sadia_vpc.id
+resource "aws_route_table" "db_private_rt" {
+  for_each = aws_subnet.db_private_subnets
+  vpc_id   = aws_vpc.main.id
 
   tags = {
     Name = "${var.project_name}-db-private-rt-${each.key}"
   }
 }
 
-resource "aws_route_table_association" "sadia_db_private_rt_assoc" {
-  for_each = aws_subnet.sadia_db_private_subnets
+resource "aws_route_table_association" "db_private_rt_assoc" {
+  for_each = aws_subnet.db_private_subnets
 
   subnet_id      = each.value.id
-  route_table_id = aws_route_table.sadia_db_private_rt[each.key].id
+  route_table_id = aws_route_table.db_private_rt[each.key].id
 }
 
-resource "aws_security_group" "sadia_web_sg" {
+resource "aws_security_group" "web_sg" {
   name        = "${var.project_name}-web-sg"
   description = "Security group for web servers"
-  vpc_id      = aws_vpc.sadia_vpc.id
+  vpc_id      = aws_vpc.main.id
 }
 
 resource "aws_security_group_rule" "web_allow_ssh" {
@@ -173,7 +173,7 @@ resource "aws_security_group_rule" "web_allow_ssh" {
   to_port           = 22
   protocol          = "tcp"
   cidr_blocks       = [var.allow_ssh_cidr]
-  security_group_id = aws_security_group.sadia_web_sg.id
+  security_group_id = aws_security_group.web_sg.id
 }
 
 resource "aws_security_group_rule" "web_allow_all_outbound" {
@@ -182,31 +182,31 @@ resource "aws_security_group_rule" "web_allow_all_outbound" {
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = [var.open_cidr]
-  security_group_id = aws_security_group.sadia_web_sg.id
+  security_group_id = aws_security_group.web_sg.id
 }
 
-resource "aws_security_group_rule" "web_allow_http" {
+resource "aws_security_group_rule" "inbound_http" {
   type              = "ingress"
   from_port         = 80
   to_port           = 80
   protocol          = "tcp"
-  cidr_blocks       = [var.open_cidr]
-  security_group_id = aws_security_group.sadia_web_sg.id
+  cidr_blocks       = var.inbound_web_cidr
+  security_group_id = aws_security_group.web_sg.id
 }
 
-resource "aws_security_group_rule" "web_allow_https" {
+resource "aws_security_group_rule" "inbound_https" {
   type              = "ingress"
   from_port         = 443
   to_port           = 443
   protocol          = "tcp"
-  cidr_blocks       = [var.open_cidr]
-  security_group_id = aws_security_group.sadia_web_sg.id
+  cidr_blocks       = var.inbound_web_cidr
+  security_group_id = aws_security_group.web_sg.id
 }
 
-resource "aws_security_group" "sadia_db_sg" {
+resource "aws_security_group" "db_sg" {
   name        = "${var.project_name}-db-sg"
   description = "Security group for database servers"
-  vpc_id      = aws_vpc.sadia_vpc.id
+  vpc_id      = aws_vpc.main.id
 
   tags = {
     Name = "${var.project_name}-db-sg"
@@ -218,13 +218,13 @@ resource "aws_security_group_rule" "db_allow_mysql" {
   from_port                = 3306
   to_port                  = 3306
   protocol                 = "tcp"
-  security_group_id        = aws_security_group.sadia_db_sg.id
-  source_security_group_id = aws_security_group.sadia_web_sg.id
+  security_group_id        = aws_security_group.db_sg.id
+  source_security_group_id = coalesce(var.allowed_app_sg_id, aws_security_group.web_sg.id)
 }
 
-resource "aws_db_subnet_group" "sadia_db_subnet_group" {
+resource "aws_db_subnet_group" "db_subnet_group" {
   name       = "${var.project_name}-db-subnet-group"
-  subnet_ids = [for subnet in aws_subnet.sadia_db_private_subnets : subnet.id]
+  subnet_ids = [for subnet in aws_subnet.db_private_subnets : subnet.id]
 
   tags = {
     Name = "${var.project_name}-db-subnet-group"
