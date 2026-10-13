@@ -22,6 +22,7 @@ locals {
       db_private_cidr = cidrsubnet(var.vpc_cidr, 8, idx + var.availability_zone_count * 2)
     }
   }
+  open_internet = "0.0.0.0/0"
 }
 
 resource "aws_vpc" "main" {
@@ -89,7 +90,7 @@ resource "aws_route_table" "public_rt" {
 
 resource "aws_route" "public_internet_access" {
   route_table_id         = aws_route_table.public_rt.id
-  destination_cidr_block = var.open_cidr
+  destination_cidr_block = local.open_internet
   gateway_id             = aws_internet_gateway.igw.id
 }
 
@@ -134,7 +135,7 @@ resource "aws_route" "private_nat_access" {
   for_each = aws_route_table.private_rt
 
   route_table_id         = each.value.id
-  destination_cidr_block = var.open_cidr
+  destination_cidr_block = local.open_internet
   nat_gateway_id         = aws_nat_gateway.nat_gw[each.key].id
 }
 
@@ -159,67 +160,6 @@ resource "aws_route_table_association" "db_private_rt_assoc" {
 
   subnet_id      = each.value.id
   route_table_id = aws_route_table.db_private_rt[each.key].id
-}
-
-resource "aws_security_group" "web_sg" {
-  name        = "${var.project_name}-web-sg"
-  description = "Security group for web servers"
-  vpc_id      = aws_vpc.main.id
-}
-
-resource "aws_security_group_rule" "web_allow_ssh" {
-  type              = "ingress"
-  from_port         = 22
-  to_port           = 22
-  protocol          = "tcp"
-  cidr_blocks       = [var.allow_ssh_cidr]
-  security_group_id = aws_security_group.web_sg.id
-}
-
-resource "aws_security_group_rule" "web_allow_all_outbound" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = [var.open_cidr]
-  security_group_id = aws_security_group.web_sg.id
-}
-
-resource "aws_security_group_rule" "inbound_http" {
-  type              = "ingress"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  cidr_blocks       = var.inbound_web_cidr
-  security_group_id = aws_security_group.web_sg.id
-}
-
-resource "aws_security_group_rule" "inbound_https" {
-  type              = "ingress"
-  from_port         = 443
-  to_port           = 443
-  protocol          = "tcp"
-  cidr_blocks       = var.inbound_web_cidr
-  security_group_id = aws_security_group.web_sg.id
-}
-
-resource "aws_security_group" "db_sg" {
-  name        = "${var.project_name}-db-sg"
-  description = "Security group for database servers"
-  vpc_id      = aws_vpc.main.id
-
-  tags = {
-    Name = "${var.project_name}-db-sg"
-  }
-}
-
-resource "aws_security_group_rule" "db_allow_mysql" {
-  type                     = "ingress"
-  from_port                = 3306
-  to_port                  = 3306
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.db_sg.id
-  source_security_group_id = coalesce(var.allowed_app_sg_id, aws_security_group.web_sg.id)
 }
 
 resource "aws_db_subnet_group" "db_subnet_group" {
