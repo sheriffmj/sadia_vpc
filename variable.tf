@@ -15,7 +15,7 @@ variable "aws_region" {
   default     = "us-east-1"
 
   validation {
-    condition = can(regex("^([a-z]{2}-[a-z]+-[1-9])$", var.aws_region))
+    condition     = can(regex("^([a-z]{2}-[a-z]+-[1-9])$", var.aws_region))
     error_message = "The AWS region must be a valid region code"
   }
 
@@ -38,7 +38,7 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 
   validation {
-    condition     = can(cidrsubnet(var.vpc_cidr, 8, 0))
+    condition     = can(cidrnetmask(var.vpc_cidr))
     error_message = "The VPC CIDR block must be a valid CIDR"
   }
 }

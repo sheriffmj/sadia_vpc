@@ -1,30 +1,3 @@
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  owners      = ["099720109477"] # Canonical
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
-  }
-}
-
-locals {
-  selected_azs = slice(data.aws_availability_zones.available.names, 0, var.availability_zone_count)
-  subnet_config = {
-    for idx, az in local.selected_azs : az => {
-      az_name         = az
-      public_cidr     = cidrsubnet(var.vpc_cidr, 8, idx)
-      private_cidr    = cidrsubnet(var.vpc_cidr, 8, idx + var.availability_zone_count)
-      db_private_cidr = cidrsubnet(var.vpc_cidr, 8, idx + var.availability_zone_count * 2)
-    }
-  }
-  open_internet = "0.0.0.0/0"
-}
-
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
