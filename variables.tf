@@ -38,7 +38,7 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 
   validation {
-    condition     = can(cidrnetmask(var.vpc_cidr))
+    condition     = can(cidrnetmask(var.vpc_cidr)) && can(regex("/16$", var.vpc_cidr))
     error_message = "The VPC CIDR block must be a valid CIDR"
   }
 }
@@ -72,5 +72,27 @@ variable "allowed_app_sg_id" {
   validation {
     condition     = var.allowed_app_sg_id == null || can(regex("^sg-[0-9a-fA-F]+$", var.allowed_app_sg_id))
     error_message = "The allowed application security group ID must be a valid security group ID"
+  }
+}
+
+variable "environment" {
+  description = "The environment for the deployment"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "The environment must be one of 'dev', 'staging', or 'prod'"
+  }
+}
+
+variable "owner" {
+  description = "The owner of the resources"
+  type        = string
+  default     = "Sheriff Jaiteh"
+
+  validation {
+    condition     = length(var.owner) > 0
+    error_message = "The owner must not be empty"
   }
 }

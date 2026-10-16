@@ -2,6 +2,10 @@ resource "aws_security_group" "web_sg" {
   name        = "${var.project_name}-web-sg"
   description = "Security group for web servers"
   vpc_id      = aws_vpc.main.id
+
+  tags = {
+    name = "${var.project_name}-web-sg"
+  }
 }
 
 resource "aws_security_group_rule" "web_allow_ssh" {
@@ -46,7 +50,7 @@ resource "aws_security_group" "db_sg" {
   vpc_id      = aws_vpc.main.id
 
   tags = {
-    Name = "${var.project_name}-db-sg"
+    name = "${var.project_name}-db-sg"
   }
 }
 

@@ -4,7 +4,7 @@ resource "aws_vpc" "main" {
   enable_dns_hostnames = true
 
   tags = {
-    Name = "${var.project_name}-vpc"
+    name = "${var.project_name}-vpc"
   }
 }
 
@@ -17,7 +17,7 @@ resource "aws_subnet" "public_subnets" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "${var.project_name}-public-subnet-${each.key}"
+    name = "${var.project_name}-public-subnet-${each.key}"
   }
 }
 
@@ -29,7 +29,7 @@ resource "aws_subnet" "private_subnets" {
   availability_zone = each.value.az_name
 
   tags = {
-    Name = "${var.project_name}-private-subnet-${each.key}"
+    name = "${var.project_name}-private-subnet-${each.key}"
   }
 }
 
@@ -41,7 +41,7 @@ resource "aws_subnet" "db_private_subnets" {
   availability_zone = each.value.az_name
 
   tags = {
-    Name = "${var.project_name}-db-private-subnet-${each.key}"
+    name = "${var.project_name}-db-private-subnet-${each.key}"
   }
 }
 
@@ -49,7 +49,7 @@ resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "${var.project_name}-igw"
+    name = "${var.project_name}-igw"
   }
 }
 
@@ -57,7 +57,7 @@ resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "${var.project_name}-public-rt"
+    name = "${var.project_name}-public-rt"
   }
 }
 
@@ -80,7 +80,7 @@ resource "aws_eip" "nat_eip" {
   depends_on = [aws_internet_gateway.igw]
 
   tags = {
-    Name = "${var.project_name}-eip-${each.key}"
+    name = "${var.project_name}-eip-${each.key}"
   }
 }
 
@@ -92,7 +92,7 @@ resource "aws_nat_gateway" "nat_gw" {
   depends_on    = [aws_internet_gateway.igw]
 
   tags = {
-    Name = "${var.project_name}-nat-gw-${each.key}"
+    name = "${var.project_name}-nat-gw-${each.key}"
   }
 }
 resource "aws_route_table" "private_rt" {
@@ -100,7 +100,7 @@ resource "aws_route_table" "private_rt" {
   vpc_id   = aws_vpc.main.id
 
   tags = {
-    Name = "${var.project_name}-private-rt-${each.key}"
+    name = "${var.project_name}-private-rt-${each.key}"
   }
 }
 
@@ -124,7 +124,7 @@ resource "aws_route_table" "db_private_rt" {
   vpc_id   = aws_vpc.main.id
 
   tags = {
-    Name = "${var.project_name}-db-private-rt-${each.key}"
+    name = "${var.project_name}-db-private-rt-${each.key}"
   }
 }
 
@@ -140,6 +140,6 @@ resource "aws_db_subnet_group" "db_subnet_group" {
   subnet_ids = [for subnet in aws_subnet.db_private_subnets : subnet.id]
 
   tags = {
-    Name = "${var.project_name}-db-subnet-group"
+    name = "${var.project_name}-db-subnet-group"
   }
 }

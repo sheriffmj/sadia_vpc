@@ -28,7 +28,7 @@ output "db_sg_id" {
   description = "The ID of the Database security group"
 }
 
-output "aws_nat_gateway_ids" {
+output "nat_gateway_ids" {
   value       = [for nat in aws_nat_gateway.nat_gw : nat.id]
   description = "A list of IDs of the NAT gateways"
 }
