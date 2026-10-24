@@ -43,16 +43,6 @@ variable "vpc_cidr" {
   }
 }
 
-variable "allow_ssh_cidr" {
-  description = "The CIDR block to allow SSH access from"
-  type        = string
-  default     = "10.255.255.1/32"
-  validation {
-    condition     = can(cidrnetmask(var.allow_ssh_cidr)) && can(regex("/32$", var.allow_ssh_cidr))
-    error_message = "The SSH allow CIDR must be a valid single IPv4 address ending in /32"
-  }
-}
-
 variable "inbound_web_cidr" {
   description = "The CIDR block to allow inbound HTTP and HTTPS access from"
   type        = list(string)
@@ -89,10 +79,20 @@ variable "environment" {
 variable "owner" {
   description = "The owner of the resources"
   type        = string
-  default     = "Sheriff Jaiteh"
+  default     = "SMJ"
 
   validation {
     condition     = length(var.owner) > 0
     error_message = "The owner must not be empty"
   }
+}
+
+variable "ssm_services" {
+  description = "The list of SSM services endpoints names"
+  type        = list(string)
+  default     = [
+    "ssm",
+    "ec2messages",
+    "ssmmessages"
+  ]
 }

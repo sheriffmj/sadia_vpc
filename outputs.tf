@@ -28,16 +28,6 @@ output "db_sg_id" {
   description = "The ID of the Database security group"
 }
 
-output "nat_gateway_ids" {
-  value       = [for nat in aws_nat_gateway.nat_gw : nat.id]
-  description = "A list of IDs of the NAT gateways"
-}
-
-output "nat_gateway_public_ips" {
-  value       = [for eip in aws_eip.nat_eip : eip.public_ip]
-  description = "A list of public Elastic IPs bound to the NAT gateways"
-}
-
 output "db_subnet_group_name" {
   value       = aws_db_subnet_group.db_subnet_group.name
   description = "The name of the DB subnet group"

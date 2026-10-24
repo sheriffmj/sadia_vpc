@@ -9,5 +9,7 @@ locals {
       db_private_cidr = cidrsubnet(var.vpc_cidr, 8, idx + var.availability_zone_count * 2)
     }
   }
+  
   open_internet = "0.0.0.0/0"
+
 }
