@@ -17,13 +17,9 @@ resource "aws_vpc_endpoint" "s3_gateway" {
   service_name      = "com.amazonaws.${var.aws_region}.s3"
   vpc_endpoint_type = "Gateway"
 
-  route_table_ids = concat(
-    [
-      aws_route_table.private_rt.id,
-      aws_route_table.public_rt.id,
-    ], [for rt in aws_route_table.db_private_rt : rt.id]
-  )
-
+  route_table_ids = [
+    aws_route_table.private_rt.id,
+  ]
   tags = {
     Name = "${var.project_name}-s3-gateway-endpoint"
   }

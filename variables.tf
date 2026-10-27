@@ -90,7 +90,7 @@ variable "owner" {
 variable "ssm_services" {
   description = "The list of SSM services endpoints names"
   type        = list(string)
-  default     = [
+  default = [
     "ssm",
     "ec2messages",
     "ssmmessages"
