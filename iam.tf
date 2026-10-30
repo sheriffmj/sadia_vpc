@@ -35,5 +35,18 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 }
 
 
+resource "aws_eks_access_entry" "admin_user" {
+  cluster_name = aws_eks_cluster.eks_cluster.name
+  principal_arn = data.aws_caller_identity.current.arn
+  type = "STANDARD"
+}
 
+resource "aws_eks_access_policy_association" "admin_user_policy" {
+  cluster_name = aws_eks_cluster.eks_cluster.name
+  policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = aws_eks_access_entry.admin_user.principal_arn
 
+  access_scope {
+  type = "cluster"
+  }
+}
