@@ -36,7 +36,7 @@ jobs:
         run: terraform plan -out=tfplan
         env:
           TF_VAR_admin_cidrs: ${{ vars.ADMIN_CIDRS }}
-          TF_VAR_admin_principal_arns: ${{ vars.ADMIN_PRINCIPAL_ARN }}
+          TF_VAR_admin_principal_arn: ${{ vars.ADMIN_PRINCIPAL_ARN }}
 
       - name: Apply Terraform deployment
         run: terraform apply -auto-approve tfplan
