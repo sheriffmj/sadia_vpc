@@ -47,3 +47,33 @@ output "al2023_ami_id" {
   value       = data.aws_ssm_parameter.al2023.insecure_value
   description = "The ID of the fallback AMI if none is specified"
 }
+
+output "eks_cluster_name" {
+  value       = aws_eks_cluster.eks_cluster.name
+  description = "The name of the EKS cluster"
+}
+
+output "eks_node_group_name" {
+  value       = aws_eks_node_group.eks_node_group.node_group_name
+  description = "The name of the EKS node group"
+}
+
+output "eks_node_group_role_arn" {
+  value       = aws_iam_role.eks_nodegroup.arn
+  description = "The ARN of the EKS node group role"
+}
+
+output "eks_cluster_endpoint" {
+  value       = aws_eks_cluster.eks_cluster.endpoint
+  description = "The endpoint of the EKS cluster"
+}
+
+output "eks_cluster_security_group_id" {
+  value       = aws_eks_cluster.eks_cluster.vpc_config[0].cluster_security_group_id
+  description = "The security group ID of the EKS cluster"
+}
+
+output "eks_log_group_name" {
+  value       = aws_cloudwatch_log_group.eks_log_group.name
+  description = "The name of the EKS CloudWatch log group"
+}

@@ -105,7 +105,7 @@ resource "aws_security_group_rule" "db_allow_mysql" {
   to_port                  = 3306
   protocol                 = "tcp"
   security_group_id        = aws_security_group.db_sg.id
-  source_security_group_id = coalesce(var.allowed_app_sg_id, aws_security_group.app_sg.id)
+  source_security_group_id = aws_security_group.app_sg.id
 }
 
 resource "aws_security_group" "endpoints_sg" {
@@ -113,11 +113,12 @@ resource "aws_security_group" "endpoints_sg" {
   description = "Security group for SSM VPC interface endpoints"
   vpc_id      = aws_vpc.main.id
   ingress {
-    description     = "Allow inbound HTTPS access to SSM VPC interface endpoints"
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = [aws_security_group.app_sg.id]
+    description = "Allow inbound HTTPS access to SSM VPC interface endpoints"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    security_groups = [aws_security_group.app_sg.id,
+    aws_eks_cluster.eks_cluster.vpc_config[0].cluster_security_group_id]
   }
 
   tags = {

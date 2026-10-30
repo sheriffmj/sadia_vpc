@@ -24,3 +24,4 @@ resource "aws_vpc_endpoint" "s3_gateway" {
     Name = "${var.project_name}-s3-gateway-endpoint"
   }
 }
+
