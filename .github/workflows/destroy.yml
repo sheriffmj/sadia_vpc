@@ -2,15 +2,28 @@ name: Destroy Terraform Configuration
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm destruction'
+        required: true
 
 permissions:
   id-token: write
   contents: read
+env:
+  TF_INPUTS: "false"
 
 jobs:
   destroy:
     runs-on: ubuntu-latest
     steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "yes" ]; then
+            echo "Confirmation was not 'yes'. Nothing will be destroyed."
+            exit 1
+          fi
+          
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -27,8 +40,14 @@ jobs:
 
       - name: Initialize Terraform
         run: terraform init
+
       - name: Plan Terraform destruction
-        run: terraform plan -destroy -out=tfdestroy
+        run: terraform plan -destroy -out=tfdestroy -lock-timeout=5m
+        env:
+          TF_VAR_admin_cidrs: ${{ vars.ADMIN_CIDRS }}
+          TF_VAR_admin_principal_arn: ${{ vars.ADMIN_PRINCIPAL_ARN }}
+       
 
       - name: Apply Terraform destruction
+        if: github.event.inputs.confirm == 'yes'
         run: terraform apply -auto-approve tfdestroy
