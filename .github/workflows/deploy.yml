@@ -8,6 +8,10 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  TF_VAR_admin_cidrs: ${{ vars.ADMIN_CIDRS }}
+  TF_VAR_admin_principal_arns: ${{ vars.ADMIN_PRINCIPAL_ARNS }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
