@@ -76,3 +76,8 @@ variable "admin_cidrs" {
   default     = []
   sensitive   = true
 }
+
+variable "admin_principal_arn" {
+  description = "The ARN of the admin principal for the EKS cluster"
+  type        = string
+}
