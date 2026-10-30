@@ -74,6 +74,6 @@ output "eks_cluster_security_group_id" {
 }
 
 output "eks_log_group_name" {
-  value       = aws_cloudwatch_log_group.eks_log_group.name
+  value       = aws_cloudwatch_log_group.eks_cluster_logs.name
   description = "The name of the EKS CloudWatch log group"
 }
