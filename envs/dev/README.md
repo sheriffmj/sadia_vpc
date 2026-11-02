@@ -50,6 +50,6 @@ enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager
 ## Gotchas
 
 - `admin_principal_arn` has to be set. Bootstrap admin is off, so without it nobody can get in.
-- `admin_cidrs = []` means a private API only, so no `kubectl` from home. Add your home IP (`["x.x.x.x/32"]`) so you can use your own terminal. Home IPs do change, so if you're having trouble getting in, check that first (`curl -s https://checkip.amazonaws.com`).
+- `admin_cidrs = []` means a private API only, so no `kubectl` from home. Add your home Ip so that you can use your own termianl> home IPs do change, so if you are having some trouble accessing, check on that first
 - `desired_size` is ignored after the first apply. Changing `instance_type` replaces the node group.
 - Check your EC2 vCPU quota before scaling up (9 × m5.xlarge = 36 vCPU).
