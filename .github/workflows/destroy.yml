@@ -15,18 +15,12 @@ env:
 
 jobs:
   destroy:
+    if: github.event.inputs.confirm == 'yes'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: envs/dev
     steps:
-      - name: Check confirmation
-        run: |
-          if [ "${{ github.event.inputs.confirm }}" != "yes" ]; then
-            echo "Confirmation was not 'yes'. Nothing will be destroyed."
-            exit 1
-          fi
-          
       - name: Checkout repository
         uses: actions/checkout@v3
 
