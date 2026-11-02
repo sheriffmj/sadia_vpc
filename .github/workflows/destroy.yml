@@ -16,6 +16,9 @@ env:
 jobs:
   destroy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: envs/dev
     steps:
       - name: Check confirmation
         run: |
@@ -44,10 +47,9 @@ jobs:
       - name: Plan Terraform destruction
         run: terraform plan -destroy -out=tfdestroy -lock-timeout=5m
         env:
-          TF_VAR_admin_cidrs: ${{ vars.ADMIN_CIDRS }}
+          TF_VAR_admin_cidrs: ${{ secrets.ADMIN_CIDRS }}
           TF_VAR_admin_principal_arn: ${{ vars.ADMIN_PRINCIPAL_ARN }}
        
-
       - name: Apply Terraform destruction
         if: github.event.inputs.confirm == 'yes'
         run: terraform apply -auto-approve tfdestroy

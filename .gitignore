@@ -4,6 +4,5 @@ tfplan
 terraform.tfstate
 terraform.tfstate.backup
 .terraform/*
-terraform.tfvars
-*.tfvars
+secrets.auto.tfvars
 crash.log
