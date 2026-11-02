@@ -63,4 +63,23 @@ resource "aws_iam_role_policy_attachment" "eks_nodegroup_ssm_attach" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_eks_access_entry" "admin_user" {
+  count         = var.admin_principal_arn == null ? 0 : 1
+  cluster_name  = aws_eks_cluster.eks_cluster.name
+  principal_arn = var.admin_principal_arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "admin_user_policy" {
+  count         = var.admin_principal_arn == null ? 0 : 1
+  cluster_name  = aws_eks_cluster.eks_cluster.name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = var.admin_principal_arn
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.admin_user]
+}
 

@@ -1,5 +1,5 @@
-resource "aws_vpc_endpoint" "ssm" {
-  for_each            = toset(var.ssm_services)
+resource "aws_vpc_endpoint" "interface" {
+  for_each            = toset(var.interface_endpoints_services)
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.aws_region}.${each.key}"
   vpc_endpoint_type   = "Interface"
@@ -8,7 +8,7 @@ resource "aws_vpc_endpoint" "ssm" {
   private_dns_enabled = true
 
   tags = {
-    Name = "${var.project_name}-ssm-endpoint-${each.key}"
+    Name = "${var.project_name}-${each.key}-endpoint"
   }
 }
 
