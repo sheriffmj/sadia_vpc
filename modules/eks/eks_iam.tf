@@ -1,5 +1,5 @@
 resource "aws_iam_role" "eks_cluster" {
-  name = "${var.project_name}-eks-cluster-role"
+  name = "${var.project_name}-${data.aws_region.current.name}-eks-cluster-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -15,7 +15,7 @@ resource "aws_iam_role" "eks_cluster" {
   })
 
   tags = {
-    Name = "${var.project_name}-eks-cluster-role"
+    Name = "${var.project_name}-${data.aws_region.current.name}-eks-cluster-role"
   }
 }
 
@@ -25,7 +25,7 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
 }
 
 resource "aws_iam_role" "eks_nodegroup" {
-  name = "${var.project_name}-eks-nodegroup-role"
+  name = "${var.project_name}-${data.aws_region.current.name}-eks-nodegroup-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -41,7 +41,7 @@ resource "aws_iam_role" "eks_nodegroup" {
   })
 
   tags = {
-    Name = "${var.project_name}-eks-nodegroup-role"
+    Name = "${var.project_name}-${data.aws_region.current.name}-eks-nodegroup-role"
   }
 }
 

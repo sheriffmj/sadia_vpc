@@ -20,12 +20,6 @@ variable "kubernetes_version" {
   type        = string
 }
 
-variable "instance_type" {
-  description = "The instance type for the EKS node group"
-  type        = string
-  default     = "t3.medium"
-}
-
 variable "endpoints_security_group_id" {
   description = "The security group ID for the VPC endpoints that the EKS cluster must reach"
   type        = string
@@ -35,22 +29,6 @@ variable "private_subnet_ids" {
   description = "The list of private subnet IDs for the EKS cluster"
   type        = list(string)
   default     = []
-}
-
-variable "desired_size" {
-  description = "The desired number of nodes in the EKS node group"
-  type        = number
-}
-
-variable "max_size" {
-  description = "The maximum number of nodes in the EKS node group"
-  type        = number
-}
-
-variable "min_size" {
-  description = "The minimum number of nodes in the EKS node group"
-  type        = number
-
 }
 
 variable "retention_in_days" {
@@ -75,4 +53,14 @@ variable "auth_mode" {
   description = "The authentication mode for the EKS cluster"
   type        = string
   default     = "API_AND_CONFIG_MAP"
+}
+
+variable "node_groups" {
+  description = "The configuration for the EKS node groups"
+  type        = map(object({
+    desired_size = number
+    max_size     = number
+    min_size     = number
+    instance_type = string
+  }))
 }

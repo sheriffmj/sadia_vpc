@@ -3,11 +3,6 @@ variable "project_name" {
   type        = string
 }
 
-variable "aws_region" {
-  description = "The AWS region to deploy resources in"
-  type        = string
-}
-
 variable "availability_zone_count" {
   description = "The number of availability zones to use"
   type        = number

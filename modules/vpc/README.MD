@@ -6,7 +6,7 @@ Built to host EKS, but anything in the private subnets works as long as its secu
 
 ## Reusable
 
-- No provider or backend config. Region, tags and state come from the caller.
+- No provider or backend config. Region, tags and state come from the caller. The region is read from the caller's provider (`data "aws_region"`), so there's no region input to get wrong.
 - Nothing hardcoded. Subnet CIDRs are computed from `vpc_cidr` with fixed offsets, so 1 to 6 AZs work without code changes, and adding an AZ never moves existing subnets.
 - It doesn't know about EKS. It just outputs subnet and SG IDs that anything can use.
 - Other workloads plug in through `endpoint_client_security_group_ids`, and the endpoint list is an input.
@@ -84,8 +84,8 @@ How it fits:
 
 Rules:
 
-- **`vpc_cidr` should be a /16.** The offsets assume it. A smaller VPC would make the tiers overlap.
-- **`availability_zone_count` is capped at 6.** A 7th AZ would push public into the DB range.
+- **`vpc_cidr` must be a /16.** The offsets assume it. A smaller VPC would make the tiers overlap. (Not validated in code yet.)
+- **`availability_zone_count` must be 6 or fewer.** A 7th AZ would push public into the DB range. (Not validated in code yet.)
 - **Adding an AZ is safe.** Removing one still deletes that AZ's subnets and everything in them.
 
 ## Security group rules
@@ -104,7 +104,6 @@ module "vpc" {
   source = "../../modules/vpc"
 
   project_name            = var.project_name
-  aws_region              = var.aws_region
   availability_zone_count = 3
   vpc_cidr                = "10.0.0.0/16"
   inbound_web_cidr        = ["0.0.0.0/0"]
@@ -116,7 +115,6 @@ module "vpc" {
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `project_name` | string | required | Prefix for every resource name |
-| `aws_region` | string | required | Used to build endpoint service names |
 | `availability_zone_count` | number | required | Number of AZs to spread across (1–6) |
 | `vpc_cidr` | string | required | VPC CIDR block (a /16) |
 | `inbound_web_cidr` | list(string) | required | CIDRs allowed to the ALB on 80/443 |

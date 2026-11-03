@@ -33,18 +33,19 @@ resource "aws_eks_cluster" "eks_cluster" {
 }
 
 resource "aws_eks_node_group" "eks_node_group" {
+  for_each = var.node_groups
   cluster_name    = aws_eks_cluster.eks_cluster.name
-  node_group_name = "${var.project_name}-eks-node-group"
+  node_group_name = "${var.project_name}-eks-node-group-${each.key}"
   node_role_arn   = aws_iam_role.eks_nodegroup.arn
-  instance_types  = [var.instance_type]
+  instance_types  = [each.value.instance_type]
   ami_type        = var.nodes_ami_type
 
 
   subnet_ids = var.private_subnet_ids
   scaling_config {
-    desired_size = var.desired_size
-    max_size     = var.max_size
-    min_size     = var.min_size
+    desired_size = each.value.desired_size
+    max_size     = each.value.max_size
+    min_size     = each.value.min_size
   }
   lifecycle {
     ignore_changes = [scaling_config[0].desired_size]
@@ -58,7 +59,6 @@ resource "aws_eks_node_group" "eks_node_group" {
     aws_iam_role_policy_attachment.eks_nodegroup_ssm_attach,
     aws_vpc_security_group_ingress_rule.endpoints_from_cluster,
   ]
-
 
 }
 

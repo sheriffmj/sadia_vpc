@@ -11,12 +11,12 @@ sadia/
 ├── envs/dev/        # backend, provider, tfvars, module calls
 └── modules/
     ├── vpc/         # network, endpoints, security groups
-    └── eks/         # cluster, node group, IAM, access
+    └── eks/         # cluster, node groups, IAM, access
 ```
 
 ## Reusable by design
 
-Defaults live in modules, decisions live in the environment. Modules have no provider or backend config, and every setting (names, CIDRs, AZs, version, instance type, node count, admin) is a variable. Going from 2 × t3.medium to 9 × m5.xlarge was a tfvars change only.
+Defaults live in modules, decisions live in the environment. Modules have no provider or backend config, and every setting (names, CIDRs, AZs, version, node groups, admin) is a variable. Going from 2 × t3.medium to 9 × m5.xlarge was a tfvars change only, and node groups are a map, so adding a group is a tfvars entry too. The region is set once, on the provider, and both modules read it from there.
 
 A new environment is a copy of `envs/dev` with its own state key and tfvars.
 
@@ -40,8 +40,8 @@ Trade-off: if no admin is declared, nobody can get in. That's why the env requir
 **S3 backend with native locking (`use_lockfile`).**
 Why: Terraform 1.10 locks in S3 itself, so there's no DynamoDB table to create, pay for or manage.
 
-**Lock file committed, tfvars ignored.**
-Why: the lock file pins the exact provider build, so every machine and CI run gets the same one. tfvars holds my IP and account ID, so a committed `.example` documents the shape without exposing them.
+**Lock file committed. tfvars split into shared and private.**
+Why: the lock file pins the exact provider build, so every machine and CI run gets the same one. `terraform.tfvars` holds the non-sensitive values and is committed, so local and CI read one copy and can't drift. My IP and admin ARN live in a gitignored `secrets.auto.tfvars` locally and in GitHub secrets/variables for CI.
 
 ## What I did
 
@@ -54,8 +54,11 @@ Why: the lock file pins the exact provider build, so every machine and CI run ge
 - Raised the provider floor to `>= 5.40` (access entries)
 - Bootstrap admin off, admin granted explicitly through `admin_principal_arn`
 - Kept SSM on nodes, the only way in when a node won't join
-- Lock file committed, `terraform.tfvars` gitignored
+- Lock file committed, `terraform.tfvars` committed with non-sensitive values only, IP and ARN in a gitignored `secrets.auto.tfvars` (GitHub secrets in CI)
 - Ran tfsec, first apply locally, then scaled dev to 9 × m5.xlarge (min 9, max 12)
+- Node groups turned into a map (`node_groups`), so callers can define any number of groups in tfvars
+- IAM role names include the region, so the same project can deploy to a second region without name collisions
+- Both modules read the region from the provider instead of taking an `aws_region` input
 
 ## Run it
 

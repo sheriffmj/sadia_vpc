@@ -43,26 +43,6 @@ variable "admin_principal_arn" {
   type        = string
 }
 
-variable "instance_type" {
-  description = "The instance type for the nodes"
-  type        = string
-}
-
-variable "desired_size" {
-  description = "The desired number of nodes in the cluster"
-  type        = number
-}
-
-variable "max_size" {
-  description = "The maximum number of nodes in the cluster"
-  type        = number
-}
-
-variable "min_size" {
-  description = "The minimum number of nodes in the cluster"
-  type        = number
-}
-
 variable "retention_in_days" {
   description = "The number of days to retain logs"
   type        = number
@@ -81,4 +61,14 @@ variable "nodes_ami_type" {
 variable "kubernetes_version" {
   description = "The version of Kubernetes to deploy"
   type        = string
+}
+
+variable "node_groups" {
+  description = "The configuration for the EKS node groups"
+  type        = map(object({
+    desired_size = number
+    max_size     = number
+    min_size     = number
+    instance_type = string
+  }))
 }
