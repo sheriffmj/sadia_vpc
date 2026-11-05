@@ -41,7 +41,6 @@ owner                     = "your-name"
 project_name              = "my-project"
 availability_zone_count   = 3
 vpc_cidr                  = "10.0.0.0/16"
-inbound_web_cidr          = ["0.0.0.0/0"]
 kubernetes_version        = "<supported version>"
 nodes_ami_type            = "AL2023_x86_64_STANDARD"
 node_groups = {

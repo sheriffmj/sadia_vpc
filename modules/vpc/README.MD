@@ -1,15 +1,15 @@
 # modules/vpc
 
-A three-tier VPC with no NAT gateway. The private subnets have no route to the internet, so everything in them reaches AWS through VPC endpoints.
+A three-tier, zero-egress VPC. There's no NAT gateway, and the private subnets have no route to the internet, so everything in them reaches AWS through VPC endpoints.
 
-Built to host EKS, but anything in the private subnets works as long as its security group can reach the endpoints.
+Built to host EKS, but any workload in the private subnets can use it by bringing its own security group.
 
 ## Reusable
 
 - No provider or backend config. Region, tags and state come from the caller. The region is read from the caller's provider (`data "aws_region"`), so there's no region input to get wrong.
 - Nothing hardcoded. Subnet CIDRs are computed from `vpc_cidr` with fixed offsets, so 1 to 6 AZs work without code changes, and adding an AZ never moves existing subnets.
-- It doesn't know about EKS. It just outputs subnet and SG IDs that anything can use.
-- Other workloads plug in through `endpoint_client_security_group_ids`, and the endpoint list is an input.
+- It doesn't know about EKS or any other workload. It creates security groups only for what it owns (the endpoints). Each workload brings its own security group and plugs into the endpoints through `endpoint_client_security_group_ids`.
+- The endpoint list is an input.
 
 ## Design decisions
 
@@ -27,11 +27,17 @@ Trade-off: address space is reserved for AZs you may never use (cheap on a /16),
 Why: no egress path means no data exfiltration route and a smaller attack surface. The S3 gateway endpoint is free and carries ECR image layers, so pulls don't cost endpoint traffic.
 Trade-off: each interface endpoint is billed per AZ, and anything not covered by an endpoint is unreachable.
 
-**Security groups reference other security groups, not CIDRs.**
-Why: rules follow the resources, not IP addresses. A new instance in `app_sg` is allowed to the DB automatically, and nothing else in the VPC is, even if it shares a subnet. This is least privilege inside the VPC.
+**Security groups only for what the module owns.**
+Why: the module owns the endpoints, so it creates their security group. Workloads (EKS, EC2, a database) belong to whoever deploys them, and their ports and rules differ, so they bring their own. The VPC originally shipped ALB, app and DB security groups from the EC2 design. Nothing on EKS used them, and unused permissions are a least-privilege risk if someone attaches them later, so they were removed.
 
-**Egress is restricted too.**
-Why: most setups only lock down ingress. `app_sg` can only reach the endpoints, S3 and MySQL, so a compromised host can't reach anything else in the VPC.
+**Zero egress is enforced by routing, not security groups.**
+Why: the private route table has no internet route and there's no NAT. A security group that allows all outbound (like the EKS cluster's) still can't reach the internet, so bringing your own security group can't break zero egress. Only changing the network itself (adding a NAT or an internet route) could.
+
+**The endpoints security group starts closed.**
+Why: it has no rules of its own. Nothing can reach the endpoints until a consumer opens access for itself: the EKS module adds a rule for the cluster SG, and other workloads pass their SG in. Least privilege by default.
+
+**The default security group is locked down.**
+Why: every VPC gets an AWS default security group that allows all traffic between its members, and anything launched without a security group lands in it. The module takes it over with `aws_default_security_group` and no rules, so it denies everything.
 
 **Client SGs passed as a map, not a list.**
 Why: `for_each` needs its keys known at plan time. With static keys (`my_app = sg-...`), the SG can be created in the same apply, since only the value is unknown.
@@ -48,11 +54,11 @@ Why: add-ons need different endpoints (load balancer controller, autoscaler, Kar
 |---|---|
 | VPC | VPC with DNS support and DNS hostnames on (needed for endpoint private DNS) |
 | Subnets | One public (/24), one private (/20) and one DB (/24) subnet per AZ |
-| Public routing | Internet gateway, public route table with `0.0.0.0/0` → IGW |
+| Public routing | Internet gateway, public route table with `0.0.0.0/0` → IGW. Reserved for load balancers |
 | Private routing | Private route table with **no internet route**, only the S3 gateway route |
-| DB | One route table per DB subnet (no routes), DB subnet group |
+| DB | One route table per DB subnet (no routes), DB subnet group. No database or DB security group yet |
 | Endpoints | Interface endpoints in every private subnet with private DNS, plus an S3 gateway endpoint |
-| Security groups | `endpoints_sg`, `alb_sg`, `app_sg`, `db_sg`, using SG-to-SG rules |
+| Security groups | `endpoints_sg` (closed by default), and the VPC's default security group locked to no rules |
 
 Default interface endpoints: `ssm`, `ec2messages`, `ssmmessages`, `ec2`, `eks`, `ecr.api`, `ecr.dkr`, `sts`, `logs`.
 
@@ -88,14 +94,12 @@ Rules:
 - **`availability_zone_count` must be 6 or fewer.** A 7th AZ would push public into the DB range. (Not validated in code yet.)
 - **Adding an AZ is safe.** Removing one still deletes that AZ's subnets and everything in them.
 
-## Security group rules
+## Security groups
 
 | SG | Ingress | Egress |
 |---|---|---|
-| `endpoints_sg` | 443 from `app_sg` and from each client SG | (default) |
-| `alb_sg` | 80/443 from `inbound_web_cidr` | 80 to `app_sg` |
-| `app_sg` | 80 from `alb_sg` | 443 to `endpoints_sg`, 443 to S3 prefix list, 3306 to `db_sg` |
-| `db_sg` | 3306 from `app_sg` | (default) |
+| `endpoints_sg` | 443 from each SG in `endpoint_client_security_group_ids`, plus whatever consumers add themselves (the EKS module adds 443 from the cluster SG) | none (replies to allowed requests are stateful) |
+| Default SG | none | none |
 
 ## Usage
 
@@ -106,7 +110,6 @@ module "vpc" {
   project_name            = var.project_name
   availability_zone_count = 3
   vpc_cidr                = "10.0.0.0/16"
-  inbound_web_cidr        = ["0.0.0.0/0"]
 }
 ```
 
@@ -117,7 +120,6 @@ module "vpc" {
 | `project_name` | string | required | Prefix for every resource name |
 | `availability_zone_count` | number | required | Number of AZs to spread across (1–6) |
 | `vpc_cidr` | string | required | VPC CIDR block (a /16) |
-| `inbound_web_cidr` | list(string) | required | CIDRs allowed to the ALB on 80/443 |
 | `interface_endpoints_services` | list(string) | 9 services above | Service names after `com.amazonaws.<region>.` |
 | `endpoint_client_security_group_ids` | map(string) | `{}` | Client name => SG ID allowed 443 to the endpoints |
 
@@ -130,9 +132,6 @@ module "vpc" {
 | `private_subnet_ids` | Private subnet IDs |
 | `db_private_subnet_ids` | DB subnet IDs |
 | `db_subnet_group_name` | DB subnet group name |
-| `alb_sg_id` | ALB security group ID |
-| `app_sg_id` | App security group ID |
-| `db_sg_id` | DB security group ID |
 | `endpoints_sg_id` | Endpoints security group ID |
 | `s3_prefix_list_id` | S3 gateway prefix list ID, for client egress rules |
 
@@ -175,4 +174,4 @@ Don't pass the EKS cluster SG here. The EKS module adds its own rule, and passin
 - **Some endpoints aren't available in every AZ.** If one fails with an AZ error, that's the cause.
 - **Add endpoints as add-ons need them.** `elasticloadbalancing` for the Load Balancer Controller, `autoscaling` for an autoscaler, `sqs` and `pricing` for Karpenter.
 - `map_public_ip_on_launch = false` on public subnets.
-- The ALB/app/DB SGs are for a classic EC2 tier and will move into `alb` and `ec2` modules.
+- **Adding a database later:** put it in the DB subnets with the DB subnet group, in its own module that creates its security group allowing the EKS cluster SG on the database port.

@@ -33,7 +33,7 @@ resource "aws_eks_cluster" "eks_cluster" {
 }
 
 resource "aws_eks_node_group" "eks_node_group" {
-  for_each = var.node_groups
+  for_each        = var.node_groups
   cluster_name    = aws_eks_cluster.eks_cluster.name
   node_group_name = "${var.project_name}-eks-node-group-${each.key}"
   node_role_arn   = aws_iam_role.eks_nodegroup.arn

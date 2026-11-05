@@ -3,7 +3,7 @@
 A private EKS platform on AWS, built with Terraform.
 
 No NAT gateway and no internet route from the private subnets. Everything reaches AWS through VPC endpoints.
-
+![Architecture](docs/architecture.png)
 ## Layout
 
 ```
@@ -33,6 +33,9 @@ Trade-off: a setting has to be declared in the environment and passed through `m
 **Modules connect only through outputs, and dependencies run one way (VPC → EKS).**
 Why: the VPC module doesn't know EKS exists, so it can host anything. EKS opens its own rule on the endpoints SG instead of feeding its SG back into the VPC module, which keeps the graph one-directional and avoids a duplicate rule.
 
+**Each module creates security groups only for what it owns.**
+Why: the VPC module owns the endpoints, so it owns their security group. The EKS module opens its own access to them. Workloads bring their own security groups. Nothing ships unused permissions, and zero egress is enforced by routing, so a loose security group can't open a path to the internet.
+
 **Explicit cluster access, bootstrap admin off.**
 Why: access is the same whether `apply` runs from a laptop or from CI. Nobody gets a hidden admin entry just for running Terraform, and the CI role never needs Kubernetes access.
 Trade-off: if no admin is declared, nobody can get in. That's why the env requires `admin_principal_arn`.
@@ -59,6 +62,7 @@ Why: the lock file pins the exact provider build, so every machine and CI run ge
 - Node groups turned into a map (`node_groups`), so callers can define any number of groups in tfvars
 - IAM role names include the region, so the same project can deploy to a second region without name collisions
 - Both modules read the region from the provider instead of taking an `aws_region` input
+- Removed the leftover EC2-tier security groups (ALB, app, DB) from the VPC module. It now creates only the endpoints security group, locks down the VPC's default security group, and leaves workload security groups to the workloads
 
 ## Run it
 
@@ -93,7 +97,7 @@ The infrastructure is up. Next is making the cluster something you'd actually ru
 - AWS Load Balancer Controller for ALB/NLB from Ingress and Service
 - Subnet tags `kubernetes.io/role/elb` and `kubernetes.io/role/internal-elb`
 - Endpoint: `elasticloadbalancing`
-- Replace the static ALB/app/DB SGs in the VPC module
+- The controller creates and manages its own security groups for each load balancer
 
 **Securing CI/CD**
 - Plan on PR, apply on merge, a concurrency guard, branch protection on `main`

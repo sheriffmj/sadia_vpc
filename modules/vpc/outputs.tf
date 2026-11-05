@@ -18,21 +18,6 @@ output "db_private_subnet_ids" {
   description = "A list of IDs of the DB private subnets"
 }
 
-output "alb_sg_id" {
-  value       = aws_security_group.alb_sg.id
-  description = "The ID of the ALB security group"
-}
-
-output "app_sg_id" {
-  value       = aws_security_group.app_sg.id
-  description = "The ID of the application security group"
-}
-
-output "db_sg_id" {
-  value       = aws_security_group.db_sg.id
-  description = "The ID of the Database security group"
-}
-
 output "db_subnet_group_name" {
   value       = aws_db_subnet_group.db_subnet_group.name
   description = "The name of the DB subnet group"

@@ -7,7 +7,7 @@ variable "admin_cidrs" {
 variable "admin_principal_arn" {
   description = "The ARN of the admin principal for the EKS cluster"
   type        = string
-  default = null
+  default     = null
 }
 
 variable "project_name" {
@@ -57,10 +57,10 @@ variable "auth_mode" {
 
 variable "node_groups" {
   description = "The configuration for the EKS node groups"
-  type        = map(object({
-    desired_size = number
-    max_size     = number
-    min_size     = number
+  type = map(object({
+    desired_size  = number
+    max_size      = number
+    min_size      = number
     instance_type = string
   }))
 }
