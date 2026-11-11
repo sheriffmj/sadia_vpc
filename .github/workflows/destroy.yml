@@ -11,7 +11,7 @@ permissions:
   id-token: write
   contents: read
 env:
-  TF_INPUTS: "false"
+  TF_INPUT: "false"
 
 jobs:
   destroy:
@@ -22,16 +22,16 @@ jobs:
         working-directory: envs/dev
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4.1.0
         with:
           role-to-assume: ${{ vars.AWS_IAM_ROLE }}
-          aws-region: us-east-1
+          aws-region: ${{ vars.REGION }}
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.10.0
 
@@ -45,5 +45,4 @@ jobs:
           TF_VAR_admin_principal_arn: ${{ vars.ADMIN_PRINCIPAL_ARN }}
        
       - name: Apply Terraform destruction
-        if: github.event.inputs.confirm == 'yes'
         run: terraform apply -auto-approve tfdestroy

@@ -1,0 +1,65 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+        - "**.md"
+        - "docs/**"
+
+permissions:
+    id-token: write
+    contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: envs/dev
+    env:
+        TF_INPUT: "false"
+        TF_VAR_admin_cidrs: ${{ secrets.ADMIN_CIDRS }}
+        TF_VAR_admin_principal_arn: ${{ vars.ADMIN_PRINCIPAL_ARN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4.1.0
+        with:
+          role-to-assume: ${{ vars.AWS_IAM_ROLE }}
+          aws-region: ${{ vars.REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.0
+
+      - name: Initialize Terraform 
+        run: terraform init
+
+      - name: check formatting
+        run: terraform fmt -check -recursive ../../
+
+      - name: Validate Terraform Configuration
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -lock-timeout=5m -no-color -out=tfplan
+          terraform show -json tfplan > tfplan.json
+
+      - name: Trivy security scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: envs/dev/tfplan.json
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+          hide-progress: true

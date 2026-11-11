@@ -3,7 +3,9 @@
 A private EKS platform on AWS, built with Terraform.
 
 No NAT gateway and no internet route from the private subnets. Everything reaches AWS through VPC endpoints.
+
 ![Architecture](docs/architecture.png)
+
 ## Layout
 
 ```
@@ -43,6 +45,13 @@ Trade-off: if no admin is declared, nobody can get in. That's why the env requir
 **S3 backend with native locking (`use_lockfile`).**
 Why: Terraform 1.10 locks in S3 itself, so there's no DynamoDB table to create, pay for or manage.
 
+**Plan on every PR, apply only by hand.**
+Why: every change to `main` goes through a PR, and the PR shows the plan and a Trivy scan before anything is merged. Deploy is manual for now, so a merge never spins up the stack by itself. CI reaches AWS through OIDC, so there are no stored access keys.
+Trade-off: until an approval gate is added, applying is a separate step I have to remember to run.
+
+**Trivy action pinned to a commit SHA, not a tag.**
+Why: in March 2026, attackers moved most of `trivy-action`'s version tags to malicious commits that stole CI secrets. A tag can be moved, but a SHA can't, so the code that runs is the code I checked.
+
 **Lock file committed. tfvars split into shared and private.**
 Why: the lock file pins the exact provider build, so every machine and CI run gets the same one. `terraform.tfvars` holds the non-sensitive values and is committed, so local and CI read one copy and can't drift. My IP and admin ARN live in a gitignored `secrets.auto.tfvars` locally and in GitHub secrets/variables for CI.
 
@@ -63,6 +72,9 @@ Why: the lock file pins the exact provider build, so every machine and CI run ge
 - IAM role names include the region, so the same project can deploy to a second region without name collisions
 - Both modules read the region from the provider instead of taking an `aws_region` input
 - Removed the leftover EC2-tier security groups (ALB, app, DB) from the VPC module. It now creates only the endpoints security group, locks down the VPC's default security group, and leaves workload security groups to the workloads
+- Added a plan workflow on PRs: fmt check, validate, plan, and a Trivy scan of the plan JSON (report only until the KMS findings are fixed)
+- Switched deploy from apply-on-push to manual, and fixed the destroy workflow (`TF_INPUT` typo, action versions)
+- Work happens on a `dev` branch. `main` only changes through a PR
 
 ## Run it
 
@@ -73,6 +85,16 @@ aws eks update-kubeconfig --name $(terraform output -raw eks_cluster_name) --reg
 ```
 
 Destroy when done. The stack is about $2.10/hr (nodes, 27 endpoint ENIs, control plane).
+
+## CI/CD
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| Plan | PR to `main` | fmt check, validate, plan, Trivy scan of the plan |
+| Deploy | Manual | plan and apply |
+| Destroy | Manual, type `yes` to confirm | destroy plan and apply |
+
+All three use OIDC to assume an AWS role, so there are no AWS keys in GitHub. `admin_cidrs` comes from the secret `ADMIN_CIDRS`, and the role and admin ARN come from repo variables.
 
 ## TODO
 
@@ -100,9 +122,14 @@ The infrastructure is up. Next is making the cluster something you'd actually ru
 - The controller creates and manages its own security groups for each load balancer
 
 **Securing CI/CD**
-- Plan on PR, apply on merge, a concurrency guard, branch protection on `main`
+- ~~Plan on PR with fmt, validate and a Trivy scan~~ done
+- ~~Deploy off auto-apply~~ done (manual for now)
+- Apply on merge behind a GitHub environment with required approval
+- Concurrency guard and fmt check on deploy
 - OIDC trust policy scoped to this repo and branch, separate plan and apply roles
-- tfsec/checkov in the pipeline, manual approval on apply
+- Branch protection on `main` (PR and passing plan required)
+- Pin the remaining actions to commit SHAs
+- Switch Trivy to blocking (`exit-code: 1`) once KMS and flow logs are in
 - GitOps (Argo CD or Flux) for app deploys, so CI never holds cluster credentials
 
 **Cluster hardening**
