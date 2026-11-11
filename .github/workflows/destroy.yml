@@ -24,6 +24,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Mask admin IPs
+        run: |
+          for ip in $(echo "$TF_VAR_admin_cidrs" | grep -oE '[0-9]+(\.[0-9]+){3}'); do
+            echo "::add-mask::$ip"
+          done
+        env:
+          TF_VAR_admin_cidrs: ${{ secrets.ADMIN_CIDRS }}        
+
       - name: configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4.1.0
         with:
