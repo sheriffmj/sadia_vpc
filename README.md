@@ -45,9 +45,12 @@ Trade-off: if no admin is declared, nobody can get in. That's why the env requir
 **S3 backend with native locking (`use_lockfile`).**
 Why: Terraform 1.10 locks in S3 itself, so there's no DynamoDB table to create, pay for or manage.
 
-**Plan on every PR, apply only by hand.**
-Why: every change to `main` goes through a PR, and the PR shows the plan and a Trivy scan before anything is merged. Deploy is manual for now, so a merge never spins up the stack by itself. CI reaches AWS through OIDC, so there are no stored access keys.
-Trade-off: until an approval gate is added, applying is a separate step I have to remember to run.
+**Plan on the PR, apply on merge, behind an approval.**
+Why: the PR shows the plan and a Trivy scan before anything is merged. Merging starts the deploy, but it waits in the `dev` GitHub environment until I approve it, and only `main` can deploy there. Destroy goes through the same approval on top of typing `yes`. CI reaches AWS through OIDC, so there are no stored access keys.
+Trade-off: you approve before the deploy's own plan runs, so you're trusting the plan you reviewed on the PR. Splitting plan and apply into two jobs would fix that, but it means passing the plan file as an artifact, and on a public repo anyone could download it with my IP inside.
+
+**Admin IPs masked in CI logs.**
+Why: GitHub only hides a secret when its exact value appears in the log. `ADMIN_CIDRS` is a list, but plan and Trivy print the bare IP, so it showed up in public logs. Each workflow now pulls the IPs out of the secret and masks them before anything runs.
 
 **Trivy action pinned to a commit SHA, not a tag.**
 Why: in March 2026, attackers moved most of `trivy-action`'s version tags to malicious commits that stole CI secrets. A tag can be moved, but a SHA can't, so the code that runs is the code I checked.
@@ -73,8 +76,10 @@ Why: the lock file pins the exact provider build, so every machine and CI run ge
 - Both modules read the region from the provider instead of taking an `aws_region` input
 - Removed the leftover EC2-tier security groups (ALB, app, DB) from the VPC module. It now creates only the endpoints security group, locks down the VPC's default security group, and leaves workload security groups to the workloads
 - Added a plan workflow on PRs: fmt check, validate, plan, and a Trivy scan of the plan JSON (report only until the KMS findings are fixed)
-- Switched deploy from apply-on-push to manual, and fixed the destroy workflow (`TF_INPUT` typo, action versions)
+- Fixed the destroy workflow (`TF_INPUT` typo, action versions)
 - Work happens on a `dev` branch. `main` only changes through a PR
+- Found my IP printed in public CI logs (plan and Trivy output). Deleted the logs and added a step that masks the admin IPs in every workflow
+- Deploy runs on merge to `main` but waits for approval in a `dev` GitHub environment (restricted to `main`). Destroy needs the same approval
 
 ## Run it
 
@@ -91,10 +96,10 @@ Destroy when done. The stack is about $2.10/hr (nodes, 27 endpoint ENIs, control
 | Workflow | Trigger | What it does |
 |---|---|---|
 | Plan | PR to `main` | fmt check, validate, plan, Trivy scan of the plan |
-| Deploy | Manual | plan and apply |
-| Destroy | Manual, type `yes` to confirm | destroy plan and apply |
+| Deploy | Merge to `main` (or manual), then approval in the `dev` environment | plan and apply |
+| Destroy | Manual, type `yes`, then approval in the `dev` environment | destroy plan and apply |
 
-All three use OIDC to assume an AWS role, so there are no AWS keys in GitHub. `admin_cidrs` comes from the secret `ADMIN_CIDRS`, and the role and admin ARN come from repo variables.
+All three use OIDC to assume an AWS role, so there are no AWS keys in GitHub. `admin_cidrs` comes from the secret `ADMIN_CIDRS`, and the role and admin ARN come from repo variables. Admin IPs are masked in the logs.
 
 ## TODO
 
@@ -123,13 +128,14 @@ The infrastructure is up. Next is making the cluster something you'd actually ru
 
 **Securing CI/CD**
 - ~~Plan on PR with fmt, validate and a Trivy scan~~ done
-- ~~Deploy off auto-apply~~ done (manual for now)
-- Apply on merge behind a GitHub environment with required approval
+- ~~Apply on merge behind a GitHub environment with required approval~~ done
+- ~~Mask admin IPs in CI logs~~ done
 - Concurrency guard and fmt check on deploy
-- OIDC trust policy scoped to this repo and branch, separate plan and apply roles
+- Separate plan and apply roles: a read-only plan role trusted only by PR runs, and the apply role trusted only by the `dev` environment, so AWS enforces the approval gate
 - Branch protection on `main` (PR and passing plan required)
 - Pin the remaining actions to commit SHAs
-- Switch Trivy to blocking (`exit-code: 1`) once KMS and flow logs are in
+- Switch Trivy to blocking (`exit-code: 1`) once KMS and flow logs are in, with a `.trivyignore` for the two accepted findings (public endpoint, single /32), and add the same scan to deploy as a last check
+- Turn the pipeline into a golden path: reusable workflows any environment calls in a few lines
 - GitOps (Argo CD or Flux) for app deploys, so CI never holds cluster credentials
 
 **Cluster hardening**

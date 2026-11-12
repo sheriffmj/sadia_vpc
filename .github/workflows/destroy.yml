@@ -17,6 +17,7 @@ jobs:
   destroy:
     if: github.event.inputs.confirm == 'yes'
     runs-on: ubuntu-latest
+    environment: dev
     defaults:
       run:
         working-directory: envs/dev

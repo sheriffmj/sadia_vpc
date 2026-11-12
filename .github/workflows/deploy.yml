@@ -1,6 +1,12 @@
 name: Deploy Terraform Configuration
 
 on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
 
 permissions:
@@ -10,6 +16,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: dev
     defaults:
       run:
         working-directory: envs/dev
