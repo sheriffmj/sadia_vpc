@@ -49,6 +49,10 @@ Why: Terraform 1.10 locks in S3 itself, so there's no DynamoDB table to create, 
 Why: the PR shows the plan and a Trivy scan before anything is merged. Merging starts the deploy, but it waits in the `dev` GitHub environment until I approve it, and only `main` can deploy there. Destroy goes through the same approval on top of typing `yes`. CI reaches AWS through OIDC, so there are no stored access keys.
 Trade-off: you approve before the deploy's own plan runs, so you're trusting the plan you reviewed on the PR. Splitting plan and apply into two jobs would fix that, but it means passing the plan file as an artifact, and on a public repo anyone could download it with my IP inside.
 
+**Two CI roles, each trusting exactly one kind of job.**
+Why: a PR plan only needs to read, so it gets a read-only role (plus the state lock file) that trusts only `pull_request` tokens. Deploy and destroy use the apply role, which trusts only jobs in the `dev` environment. That makes the approval gate something AWS enforces, not just a line in YAML: a job that skips the environment can't get credentials at all. Both trust policies match the full subject exactly, including GitHub's immutable owner and repo IDs, so a recycled or lookalike account name can't match.
+Trade-off: the apply role still has broad permissions. Scoping it down to what Terraform actually touches is a later step.
+
 **Admin IPs masked in CI logs.**
 Why: GitHub only hides a secret when its exact value appears in the log. `ADMIN_CIDRS` is a list, but plan and Trivy print the bare IP, so it showed up in public logs. Each workflow now pulls the IPs out of the secret and masks them before anything runs.
 
@@ -80,6 +84,10 @@ Why: the lock file pins the exact provider build, so every machine and CI run ge
 - Work happens on a `dev` branch. `main` only changes through a PR
 - Found my IP printed in public CI logs (plan and Trivy output). Deleted the logs and added a step that masks the admin IPs in every workflow
 - Deploy runs on merge to `main` but waits for approval in a `dev` GitHub environment (restricted to `main`). Destroy needs the same approval
+- First CI deploy hit two real issues: an EKS log group left behind by an earlier destroy (EKS recreated it while shutting down), and the account's 32 vCPU limit (9 × m5.xlarge needs 36). Deleted the orphaned log group and raised the quota to 48
+- Audited the OIDC trust policy and found `repo:sheriffmj*/sadia_vpc*`. The wildcard after the owner meant any GitHub account whose name started with `sheriffmj` could assume the admin role. Checked CloudTrail (only my repo had used it) and fixed it
+- Found the repo uses GitHub's newer immutable subject format (`owner@id/repo@id`), so trust policies now match the IDs, not just the names
+- Split CI into two roles: a read-only plan role trusted only by PR runs, and the apply role trusted only by the `dev` environment. Tested both with real runs
 
 ## Run it
 
@@ -99,7 +107,7 @@ Destroy when done. The stack is about $2.10/hr (nodes, 27 endpoint ENIs, control
 | Deploy | Merge to `main` (or manual), then approval in the `dev` environment | plan and apply |
 | Destroy | Manual, type `yes`, then approval in the `dev` environment | destroy plan and apply |
 
-All three use OIDC to assume an AWS role, so there are no AWS keys in GitHub. `admin_cidrs` comes from the secret `ADMIN_CIDRS`, and the role and admin ARN come from repo variables. Admin IPs are masked in the logs.
+All three use OIDC, so there are no AWS keys in GitHub. Plan assumes a read-only role (`AWS_PLAN_ROLE`) that only PR runs can use. Deploy and destroy assume the apply role (`AWS_IAM_ROLE`), which only jobs in the approved `dev` environment can use. `admin_cidrs` comes from the secret `ADMIN_CIDRS`, and the admin ARN from a repo variable. Admin IPs are masked in the logs.
 
 ## TODO
 
@@ -130,8 +138,9 @@ The infrastructure is up. Next is making the cluster something you'd actually ru
 - ~~Plan on PR with fmt, validate and a Trivy scan~~ done
 - ~~Apply on merge behind a GitHub environment with required approval~~ done
 - ~~Mask admin IPs in CI logs~~ done
+- ~~Separate plan and apply roles, OIDC trust scoped to exact subjects~~ done
 - Concurrency guard and fmt check on deploy
-- Separate plan and apply roles: a read-only plan role trusted only by PR runs, and the apply role trusted only by the `dev` environment, so AWS enforces the approval gate
+- Scope the apply role's permissions down from admin
 - Branch protection on `main` (PR and passing plan required)
 - Pin the remaining actions to commit SHAs
 - Switch Trivy to blocking (`exit-code: 1`) once KMS and flow logs are in, with a `.trivyignore` for the two accepted findings (public endpoint, single /32), and add the same scan to deploy as a last check
