@@ -28,11 +28,6 @@ variable "vpc_cidr" {
   type        = string
 }
 
-variable "inbound_web_cidr" {
-  description = "The CIDR block to allow inbound HTTP and HTTPS access from"
-  type        = list(string)
-}
-
 variable "admin_cidrs" {
   description = "The list of CIDR blocks allowed to access the admin interface"
   type        = list(string)

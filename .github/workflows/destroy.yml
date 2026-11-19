@@ -55,3 +55,10 @@ jobs:
        
       - name: Apply Terraform destruction
         run: terraform apply -auto-approve tfdestroy
+
+      # EKS can recreate its log group while the cluster shuts down,
+      # which then breaks the next deploy with "log group already exists".
+      - name: Remove EKS log group recreated during destroy
+        run: |
+          aws logs delete-log-group \
+            --log-group-name /aws/eks/sadia-eks-cluster/cluster || true

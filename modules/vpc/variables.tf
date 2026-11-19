@@ -6,16 +6,29 @@ variable "project_name" {
 variable "availability_zone_count" {
   description = "The number of availability zones to use"
   type        = number
+
+  # Subnet offsets are sized for 6 AZs (local.max_azs). A 7th AZ would
+  # push the public subnets into the DB range.
+  validation {
+    condition = (
+      var.availability_zone_count >= 1 &&
+      var.availability_zone_count <= 6 &&
+      floor(var.availability_zone_count) == var.availability_zone_count
+    )
+    error_message = "availability_zone_count must be a whole number from 1 to 6."
+  }
 }
 
 variable "vpc_cidr" {
   description = "The CIDR block for the VPC"
   type        = string
-}
 
-variable "inbound_web_cidr" {
-  description = "The CIDR block to allow inbound HTTP and HTTPS access from"
-  type        = list(string)
+  # The subnet layout (public and DB /24s, private /20s) assumes a /16.
+  # A smaller VPC would make the tiers overlap
+  validation {
+    condition     = can(cidrnetmask(var.vpc_cidr)) && can(regex("/16$", var.vpc_cidr))
+    error_message = "vpc_cidr must be a valid IPv4 /16 CIDR block, for example 10.0.0.0/16."
+  }
 }
 
 variable "interface_endpoints_services" {

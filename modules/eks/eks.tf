@@ -39,9 +39,8 @@ resource "aws_eks_node_group" "eks_node_group" {
   node_role_arn   = aws_iam_role.eks_nodegroup.arn
   instance_types  = [each.value.instance_type]
   ami_type        = var.nodes_ami_type
+  subnet_ids      = var.private_subnet_ids
 
-
-  subnet_ids = var.private_subnet_ids
   scaling_config {
     desired_size = each.value.desired_size
     max_size     = each.value.max_size
@@ -49,9 +48,13 @@ resource "aws_eks_node_group" "eks_node_group" {
   }
   lifecycle {
     ignore_changes = [scaling_config[0].desired_size]
-
-
   }
+
+  timeouts {
+    create = "25m"
+    update = "25m"
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.eks_nodegroup_attach,
     aws_iam_role_policy_attachment.eks_nodegroup_cni_attach,
@@ -70,6 +73,3 @@ resource "aws_cloudwatch_log_group" "eks_cluster_logs" {
     Name = "${var.project_name}-eks-cluster-logs"
   }
 }
-
-
-

@@ -4,7 +4,6 @@ module "vpc" {
 
   availability_zone_count            = var.availability_zone_count
   vpc_cidr                           = var.vpc_cidr
-  inbound_web_cidr                   = var.inbound_web_cidr
   endpoint_client_security_group_ids = {}
 }
 

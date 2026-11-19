@@ -41,6 +41,9 @@ Why: without it, nodes can boot before they can reach ECR, STS and EKS, and fail
 **The log group is created before the cluster.**
 Why: otherwise EKS creates its own log group with no retention, so logs pile up forever and Terraform doesn't manage it.
 
+**Node groups time out at 25 minutes, not 60.**
+Why: a healthy node group is ready in 5 to 15 minutes. Slower than that, it's almost always stuck (vCPU quota, no capacity, nodes that can't join), and the default 60 minutes just delays finding out. Delete keeps the default, since draining nodes can take a while.
+
 **`desired_size` ignored after creation.**
 Why: an autoscaler or an on-call engineer will own the live count. Without the ignore, every routine `apply` would reset it and evict pods. Terraform keeps the guardrails (`min_size`, `max_size`).
 Trade-off: until an autoscaler exists, resizing an existing group doesn't happen through tfvars.
@@ -128,7 +131,7 @@ module "eks" {
 - Sizes are per node group. `desired_size` is ignored after creation so an autoscaler can own it, and Terraform owns `min_size` and `max_size`.
 - Changing a group's `instance_type`, or renaming its key, replaces that group, so expect a short gap with no nodes in it.
 - Each group spans all private subnets and is balanced across AZs best effort, not exactly N per AZ.
-- Check EC2 vCPU quotas before scaling up (9 × m5.xlarge = 36 vCPU).
+- Check EC2 vCPU quotas before scaling up (9 × m5.xlarge = 36 vCPU). If the quota is too low, some nodes launch and the rest fail with `VcpuLimitExceeded` in the Auto Scaling group's activity, and the node group times out after 25 minutes.
 
 ## Getting into nodes
 
@@ -151,5 +154,6 @@ Things a caller can't change without editing the module yet:
 
 - **Images must come from ECR.** Public registry pulls fail with `ImagePullBackOff`. The EKS add-ons pull from AWS-managed ECR, so they work.
 - **The cluster SG allows all outbound**, so no egress rules are needed here.
+- **EKS can recreate the log group during destroy.** It writes a last batch of logs while shutting down, after Terraform has deleted the group. The next apply then fails with "log group already exists". The destroy workflow deletes it as a final step.
 - **Provider floor is `>= 5.40`** because of access entries.
 - **tfsec:** no KMS encryption for secrets or the log group yet. The control plane logging finding is a false positive (it can't see the variable through the module call).

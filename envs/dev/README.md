@@ -71,4 +71,4 @@ In CI, the same two values come from GitHub as `TF_VAR_admin_cidrs` (secret `ADM
 - `desired_size` is ignored after the first apply. Changing a group's `instance_type`, or renaming its key (`main`), replaces that node group.
 - To add a node group, add another entry under `node_groups`. No module change needed.
 - Check your EC2 vCPU quota before scaling up (9 × m5.xlarge = 36 vCPU). New accounts can start at 32, which lets 8 nodes launch and leaves the node group stuck until it fails. Check it with `aws service-quotas get-service-quota --service-code ec2 --quota-code L-1216C47A`, and request an increase (this account is at 48, enough for `max_size` 12).
-- If an apply fails with "log group already exists", EKS recreated `/aws/eks/<cluster>/cluster` during an earlier destroy. Delete it and re-run.
+- If an apply fails with "log group already exists", EKS recreated `/aws/eks/<cluster>/cluster` during an earlier destroy. The destroy workflow now deletes it as its last step, but a destroy run locally doesn't, so delete it by hand and re-run.
