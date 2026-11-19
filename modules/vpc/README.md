@@ -90,8 +90,8 @@ How it fits:
 
 Rules:
 
-- **`vpc_cidr` must be a /16.** The offsets assume it. A smaller VPC would make the tiers overlap. (Not validated in code yet.)
-- **`availability_zone_count` must be 6 or fewer.** A 7th AZ would push public into the DB range. (Not validated in code yet.)
+- **`vpc_cidr` must be a /16.** The offsets assume it. A smaller VPC would make the tiers overlap. Validated in `variables.tf`, so anything else fails at plan.
+- **`availability_zone_count` must be 1 to 6.** A 7th AZ would push public into the DB range. Also validated, so the mistake fails at plan instead of as overlapping subnets.
 - **Adding an AZ is safe.** Removing one still deletes that AZ's subnets and everything in them.
 
 ## Security groups

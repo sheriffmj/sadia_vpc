@@ -88,6 +88,7 @@ Why: the lock file pins the exact provider build, so every machine and CI run ge
 - Audited the OIDC trust policy and found `repo:sheriffmj*/sadia_vpc*`. The wildcard after the owner meant any GitHub account whose name started with `sheriffmj` could assume the admin role. Checked CloudTrail (only my repo had used it) and fixed it
 - Found the repo uses GitHub's newer immutable subject format (`owner@id/repo@id`), so trust policies now match the IDs, not just the names
 - Split CI into two roles: a read-only plan role trusted only by PR runs, and the apply role trusted only by the `dev` environment. Tested both with real runs
+- Small fixes from the first deploys: the destroy workflow deletes the EKS log group if EKS recreated it, node groups fail after 25 minutes instead of 60, the unused `inbound_web_cidr` input (left from the old ALB security group) is gone, and the VPC module rejects AZ counts outside 1–6 and CIDRs that aren't a /16
 
 ## Run it
 

@@ -2,7 +2,6 @@ project_name            = "sadia"
 aws_region              = "us-east-1"
 availability_zone_count = 3 #aware of cost associeated with the endpoints. running destroy workflow right after deployment.
 vpc_cidr                = "10.0.0.0/16"
-inbound_web_cidr        = ["0.0.0.0/0"]
 environment             = "dev"
 owner                   = "Palmer"
 kubernetes_version      = "1.37"
